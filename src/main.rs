@@ -31,9 +31,9 @@ fn main() {
                 .expect("formula does not contain variable not present in truthy assignment")
             {
                 println!(
-                    "[{} flips] Formula satisfied by xxx",
+                    "{} {} 0 0",
                     flip_i + try_i * args.flips_max,
-                    // t
+                    args.tries_max * args.flips_max // t
                 );
                 return;
             }
@@ -69,7 +69,11 @@ fn main() {
             // println!("unsatisfied clause : {:#?}", unsatisfied_clause);
         }
     }
-    println!("[{} flips] NOT FOUND", args.tries_max * args.flips_max);
+    println!(
+        "{} {} 0 0",
+        args.tries_max * args.flips_max,
+        args.tries_max * args.flips_max,
+    );
 }
 
 fn prob(x: i64, f: &Formula, t: &mut TruthAssignment) -> f64 {
