@@ -13,7 +13,7 @@ use rand::thread_rng;
 use std::fs;
 use std::str::FromStr;
 
-const EPS: f64 = 0.0001;
+const EPS: f64 = 1.;
 const C_B: f64 = 2.3;
 
 fn main() {
