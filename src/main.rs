@@ -82,9 +82,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     while !frozen(t) {
         for _ in 0..EQUILIBRIUM {
             if_debug!(print!("{} ", value(&state, &f)));
-            value_history.push(value(&state, &f) as f32);
-            let new_state = next_state(&mut rng, state.clone());
             let state_value = value(&state, &f);
+            value_history.push(state_value as f32);
+            let new_state = next_state(&mut rng, state.clone());
             let new_state_value = value(&new_state, &f);
             if new_state_value > state_value {
                 state = new_state;
