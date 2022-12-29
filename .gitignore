@@ -13,3 +13,8 @@ target/
 .idea/
 
 data/
+
+plotters-doc-data/*
+!plotters-doc-data/.gitkeep
+
+.DS_Store

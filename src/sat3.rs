@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter};
+use std::num::ParseIntError;
 use std::str::FromStr;
 
 use rand::Rng;
@@ -5,6 +7,7 @@ use rand::Rng;
 #[derive(Debug)]
 pub(crate) struct Formula {
     pub(crate) vars_n: u32,
+    pub(crate) weights: Vec<u32>,
     pub(crate) clauses: Vec<Clause3>,
 }
 
@@ -36,8 +39,21 @@ impl FromStr for Formula {
         let lines = s.lines();
         let mut vars_n = None;
         let mut clauses: Vec<Clause3> = vec![];
+        let mut weights: Vec<u32> = vec![];
         for line in lines {
             if line.starts_with("c") {
+                continue;
+            }
+            if line.starts_with("w") {
+                weights = line
+                    .split_whitespace()
+                    .skip(1)
+                    .map(u32::from_str)
+                    .collect::<Result<Vec<u32>, ParseIntError>>()
+                    .expect("to parse all weights correctly")
+                    .into_iter()
+                    .filter(|x| x > &0u32)
+                    .collect::<Vec<u32>>();
                 continue;
             }
             if line.starts_with("p") {
@@ -57,13 +73,33 @@ impl FromStr for Formula {
 
         Ok(Formula {
             vars_n: vars_n.unwrap_or_default(),
+            weights,
             clauses,
         })
     }
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct TruthAssignment {
     pub(crate) assignments: Vec<bool>,
+}
+
+impl Display for TruthAssignment {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.assignments
+                .iter()
+                .enumerate()
+                .map(|(index, assignment)| format!(
+                    "{}{}",
+                    if *assignment { "" } else { "-" },
+                    index + 1
+                ))
+                .collect::<Vec<String>>()
+                .join(" ")
+        )
+    }
 }
 
 fn negate_if_negation(variable: i64, value: bool) -> bool {
@@ -89,6 +125,7 @@ impl TruthAssignment {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn satisfies_formula(&self, formula: &Formula) -> Option<bool> {
         formula
             .clauses
@@ -139,6 +176,7 @@ mod test {
     fn check_clause_satisfaction() {
         let f = Formula {
             vars_n: 5,
+            weights: vec![1, 1, 1, 1, 1],
             clauses: vec![
                 Clause3::from_str("-1 2 3").unwrap(),
                 Clause3::from_str("2 4 5").unwrap(),
@@ -158,6 +196,7 @@ mod test {
     fn filter_satisfied_clauses() {
         let f = Formula {
             vars_n: 5,
+            weights: vec![1, 1, 1, 1, 1],
             clauses: vec![
                 Clause3::from_str("-1 2 3").unwrap(),
                 Clause3::from_str("2 4 5").unwrap(),

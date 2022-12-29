@@ -4,107 +4,137 @@ mod args;
 mod sat3;
 
 use crate::args::Args;
-use crate::sat3::{Clause3, Formula, TruthAssignment};
+use crate::sat3::{Formula, TruthAssignment};
 use clap::Parser;
-use rand::distributions::Distribution;
-use rand::distributions::WeightedIndex;
-use rand::seq::SliceRandom;
-use rand::thread_rng;
+use plotters::prelude::*;
+use rand::rngs::ThreadRng;
+use rand::{thread_rng, Rng};
 use std::fs;
 use std::str::FromStr;
 
-const EPS: f64 = 1.;
-const C_B: f64 = 2.3;
+const INITIAL_TEMP: f64 = 500.;
+const MIN_TEMP: f64 = 5.;
+const EQUILIBRIUM: u64 = 100;
+const COOL_RATIO: f64 = 0.995;
 
-fn main() {
+const DEBUG: bool = false;
+
+fn frozen(t: f64) -> bool {
+    t <= MIN_TEMP
+}
+
+/// aka try
+fn next_state(random_generator: &mut ThreadRng, state: TruthAssignment) -> TruthAssignment {
+    let index: i64 = random_generator.gen_range(1..(state.assignments.len() + 1)) as i64;
+    let mut next_state: TruthAssignment = state.clone();
+    next_state.flip(index);
+    next_state
+}
+
+fn cool_down(t: f64) -> f64 {
+    t * COOL_RATIO
+}
+
+fn value(state: &TruthAssignment, formula: &Formula) -> i64 {
+    let truthy_variable_weight_sum: i64 = state
+        .assignments
+        .iter()
+        .enumerate()
+        .map(|(index, assignment)| {
+            if *assignment {
+                *formula
+                    .weights
+                    .get(index)
+                    .expect("variable weight be present") as i64
+            } else {
+                0 as i64
+            }
+        })
+        .sum();
+    let unsatisfied_clauses_len =
+        (formula.clauses.len() - state.satisfied_clauses(formula.clauses.iter()).len()) as i64;
+
+    truthy_variable_weight_sum - (1000i64 * unsatisfied_clauses_len)
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    let instance_serialized = fs::read_to_string(args.input).expect("reading input file ok");
+    let mut rng = thread_rng();
+    let instance_serialized = fs::read_to_string(&args.input).expect("reading input file ok");
     let f = Formula::from_str(&instance_serialized).expect("parse formula");
 
-    let mut rng = thread_rng();
-    for try_i in 0..args.tries_max {
-        let mut t = TruthAssignment::new_random(f.vars_n);
+    let mut t = INITIAL_TEMP;
+    let mut state = TruthAssignment::new_random(f.vars_n);
+    let mut best = state.clone();
+    let mut value_history: Vec<f32> = vec![];
 
-        for flip_i in 0..args.flips_max {
-            if t.satisfies_formula(&f)
-                .expect("formula does not contain variable not present in truthy assignment")
+    println!("Starting SA");
+    while !frozen(t) {
+        for _ in 0..EQUILIBRIUM {
+            if DEBUG {
+                print!("{} ", value(&state, &f));
+            }
+            value_history.push(value(&state, &f) as f32);
+            let new_state = next_state(&mut rng, state.clone());
+            let state_value = value(&state, &f);
+            let new_state_value = value(&new_state, &f);
+            if new_state_value > state_value {
+                state = new_state;
+            } else if rng.gen_range(0.0..1.0)
+                < (-1.0 * ((state_value - new_state_value) as f64) / t).exp()
             {
-                println!(
-                    "{} {} 0 0",
-                    flip_i + try_i * args.flips_max,
-                    args.tries_max * args.flips_max // t
-                );
-                return;
+                state = new_state;
             }
-            // println!(
-            //     "Satisfied clauses: {}/{}",
-            //     t.satisfied_clauses(f.clauses.iter()).len(),
-            //     f.clauses.len()
-            // );
-
-            let mut unsatisfied_clause: Option<&Clause3> = None;
-            while unsatisfied_clause.is_none() {
-                let random_clause = f.clauses.choose(&mut rng).unwrap();
-                if !t
-                    .satisfies(random_clause)
-                    .expect("clause does not contain variable not present in truth assignment")
-                {
-                    unsatisfied_clause = Some(&random_clause);
-                }
+            let state_value = value(&state, &f);
+            let best_value = value(&best, &f);
+            if state_value > best_value {
+                best = state.clone();
             }
-            let weighted_distribution = WeightedIndex::new(vec![
-                prob(unsatisfied_clause.unwrap().a, &f, &mut t),
-                prob(unsatisfied_clause.unwrap().b, &f, &mut t),
-                prob(unsatisfied_clause.unwrap().c, &f, &mut t),
-            ])
-            .unwrap();
-            // println!("{:?}", weights);
-            t.flip(match weighted_distribution.sample(&mut rng) {
-                0 => unsatisfied_clause.unwrap().a,
-                1 => unsatisfied_clause.unwrap().b,
-                2 => unsatisfied_clause.unwrap().c,
-                _ => panic!("case may not happen"),
-            });
-            // println!("unsatisfied clause : {:#?}", unsatisfied_clause);
         }
+        if DEBUG {
+            println!("\nEquilibrium. Cooling down.");
+        }
+        t = cool_down(t);
     }
-    println!(
-        "{} {} 0 0",
-        args.tries_max * args.flips_max,
-        args.tries_max * args.flips_max,
-    );
-}
+    println!("{} {} {} 0", &args.input, value(&best, &f), best);
 
-fn prob(x: i64, f: &Formula, t: &mut TruthAssignment) -> f64 {
-    let currently_satisfied = t.satisfied_clauses(f.clauses.iter());
-    t.flip(x);
-    let broken =
-        currently_satisfied.len() - t.satisfied_clauses(currently_satisfied.into_iter()).len();
-    t.flip(x);
-    // println!("ceased: {}", broken);
-    // let fixed = usize::max(0, possibly_satisfied - currently_satisfied);
+    let root = BitMapBackend::new("plotters-doc-data/plot.png", (1024, 768)).into_drawing_area();
+    root.fill(&WHITE)?;
+    let root = root.margin(20, 20, 20, 20);
+    // After this point, we should be able to draw construct a chart context
+    let mut chart = ChartBuilder::on(&root)
+        // Set the caption of the chart
+        .caption("This is our first plot", ("sans-serif", 40).into_font())
+        // Set the size of the label region
+        .x_label_area_size(20)
+        .y_label_area_size(40)
+        // Finally attach a coordinate on the drawing area and make a chart context
+        .build_cartesian_2d(
+            0f32..value_history.len() as f32,
+            *value_history.iter().min_by(|a, b| a.total_cmp(b)).unwrap()
+                ..*value_history.iter().max_by(|a, b| a.total_cmp(b)).unwrap(),
+        )?;
 
-    return 1. / (EPS + (broken as f64)).powf(C_B);
-}
+    // Then we can draw a mesh
+    chart
+        .configure_mesh()
+        // We can customize the maximum number of labels allowed for each axis
+        .x_labels(5)
+        .y_labels(5)
+        // We can also change the format of the label text
+        .y_label_formatter(&|x| format!("{:.3}", x))
+        .draw()?;
 
-#[cfg(test)]
-mod test {
-    use crate::{prob, Clause3, Formula, TruthAssignment};
-    use std::str::FromStr;
-
-    #[test]
-    fn compute_var_flip_weight() {
-        let f = Formula {
-            vars_n: 5,
-            clauses: vec![
-                Clause3::from_str("-1 2 3").unwrap(),
-                Clause3::from_str("2 4 5").unwrap(),
-            ],
-        };
-        let mut t = TruthAssignment::from(vec![true, false, false, false, true]);
-
-        println!("{}", prob(-1, &f, &mut t));
-        println!("{}", prob(5, &f, &mut t));
-    }
+    // And we can draw something in the drawing area
+    chart.draw_series(LineSeries::new(
+        value_history
+            .into_iter()
+            .enumerate()
+            .map(|(i, v)| (i as f32, v))
+            .collect::<Vec<(f32, f32)>>(),
+        &RED,
+    ))?;
+    root.present()?;
+    Ok(())
 }
