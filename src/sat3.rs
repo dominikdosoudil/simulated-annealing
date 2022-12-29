@@ -144,9 +144,7 @@ impl TruthAssignment {
             .collect() // todo: might be optimized
     }
 
-    pub(crate) fn new_random(vars_n: u32) -> TruthAssignment {
-        let mut rng = rand::thread_rng();
-
+    pub(crate) fn new_random(vars_n: u32, rng: &mut impl Rng) -> TruthAssignment {
         TruthAssignment {
             assignments: (0..vars_n).map(|_| rng.gen()).collect(),
         }

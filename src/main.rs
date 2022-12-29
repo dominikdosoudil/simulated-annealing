@@ -8,7 +8,7 @@ use crate::args::Args;
 use crate::sat3::{Formula, TruthAssignment};
 use clap::Parser;
 use rand::rngs::ThreadRng;
-use rand::{thread_rng, Rng};
+use rand::{rngs, thread_rng, Rng, SeedableRng};
 use std::fs;
 use std::str::FromStr;
 
@@ -32,7 +32,7 @@ fn frozen(t: f64) -> bool {
 }
 
 /// aka try
-fn next_state(random_generator: &mut ThreadRng, state: TruthAssignment) -> TruthAssignment {
+fn next_state(random_generator: &mut impl Rng, state: TruthAssignment) -> TruthAssignment {
     let index: i64 = random_generator.gen_range(1..(state.assignments.len() + 1)) as i64;
     let mut next_state: TruthAssignment = state.clone();
     next_state.flip(index);
@@ -69,11 +69,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     let mut rng = thread_rng();
+    // let mut rng = rngs::StdRng::seed_from_u64(0);
     let instance_serialized = fs::read_to_string(&args.input).expect("reading input file ok");
     let f = Formula::from_str(&instance_serialized).expect("parse formula");
 
     let mut t = INITIAL_TEMP;
-    let mut state = TruthAssignment::new_random(f.vars_n);
+    let mut state = TruthAssignment::new_random(f.vars_n, &mut rng);
     let mut best = state.clone();
     let mut value_history: Vec<f32> = vec![];
 
