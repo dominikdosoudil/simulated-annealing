@@ -19,6 +19,14 @@ const COOL_RATIO: f64 = 0.995;
 
 const DEBUG: bool = false;
 
+macro_rules! if_debug {
+    ($e:expr) => {
+        if DEBUG {
+            $e
+        }
+    };
+}
+
 fn frozen(t: f64) -> bool {
     t <= MIN_TEMP
 }
@@ -72,9 +80,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting SA");
     while !frozen(t) {
         for _ in 0..EQUILIBRIUM {
-            if DEBUG {
-                print!("{} ", value(&state, &f));
-            }
+            if_debug!(print!("{} ", value(&state, &f)));
             value_history.push(value(&state, &f) as f32);
             let new_state = next_state(&mut rng, state.clone());
             let state_value = value(&state, &f);
@@ -92,9 +98,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 best = state.clone();
             }
         }
-        if DEBUG {
-            println!("\nEquilibrium. Cooling down.");
-        }
+        if_debug!(println!("\nEquilibrium. Cooling down."));
         t = cool_down(t);
     }
     println!("{} {} {} 0", &args.input, value(&best, &f), best);
