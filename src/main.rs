@@ -103,6 +103,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         t = cool_down(t);
     }
     println!("{} {} {} 0", &args.input, value(&best, &f), best);
+    println!(
+        "Satisfied clauses: {} of {}",
+        best.satisfied_clauses(f.clauses.iter()).len(),
+        f.clauses.len()
+    );
 
     visualisation::draw_values(&value_history)
 }
