@@ -43,26 +43,28 @@ fn cool_down(t: f64) -> f64 {
     t * COOL_RATIO
 }
 
-fn value(state: &TruthAssignment, formula: &Formula) -> i64 {
-    let truthy_variable_weight_sum: i64 = state
-        .assignments
-        .iter()
-        .enumerate()
-        .map(|(index, assignment)| {
-            if *assignment {
-                *formula
-                    .weights
-                    .get(index)
-                    .expect("variable weight be present") as i64
-            } else {
-                0 as i64
-            }
-        })
-        .sum();
-    let unsatisfied_clauses_len =
-        (formula.clauses.len() - state.satisfied_clauses(formula.clauses.iter()).len()) as i64;
+fn value_calculator_factory(penalty_multiplier: i64) -> impl Fn(&TruthAssignment, &Formula) -> i64 {
+    return move |state: &TruthAssignment, formula: &Formula| {
+        let truthy_variable_weight_sum: i64 = state
+            .assignments
+            .iter()
+            .enumerate()
+            .map(|(index, assignment)| {
+                if *assignment {
+                    *formula
+                        .weights
+                        .get(index)
+                        .expect("variable weight be present") as i64
+                } else {
+                    0 as i64
+                }
+            })
+            .sum();
+        let unsatisfied_clauses_len =
+            (formula.clauses.len() - state.satisfied_clauses(formula.clauses.iter()).len()) as i64;
 
-    truthy_variable_weight_sum - (1000i64 * unsatisfied_clauses_len)
+        truthy_variable_weight_sum - (penalty_multiplier * unsatisfied_clauses_len)
+    };
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -77,6 +79,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut state = TruthAssignment::new_random(f.vars_n, &mut rng);
     let mut best = state.clone();
     let mut value_history: Vec<f32> = vec![];
+    let value = value_calculator_factory(
+        10_i64 * (f.weights.iter().sum::<u32>() / f.weights.len() as u32) as i64,
+    );
 
     println!("Starting SA");
     while !frozen(t) {
