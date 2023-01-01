@@ -12,7 +12,7 @@ use rand::{rngs, thread_rng, Rng, SeedableRng};
 use std::fs;
 use std::str::FromStr;
 
-const INITIAL_TEMP: f64 = 500.;
+const INITIAL_TEMP: f64 = 50.;
 const MIN_TEMP: f64 = 5.;
 const EQUILIBRIUM: u64 = 100;
 const COOL_RATIO: f64 = 0.995;
@@ -67,6 +67,10 @@ fn value_calculator_factory(penalty_multiplier: i64) -> impl Fn(&TruthAssignment
     };
 }
 
+fn compute_initial_temperature(total_weight: i64) -> f64 {
+    INITIAL_TEMP * total_weight as f64
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
@@ -75,13 +79,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let instance_serialized = fs::read_to_string(&args.input).expect("reading input file ok");
     let f = Formula::from_str(&instance_serialized).expect("parse formula");
 
-    let mut t = INITIAL_TEMP;
+    let total_weight = (f.weights.iter().sum::<u32>() / f.weights.len() as u32) as i64;
+    let mut t = compute_initial_temperature(total_weight);
     let mut state = TruthAssignment::new_random(f.vars_n, &mut rng);
     let mut best = state.clone();
     let mut value_history: Vec<f32> = vec![];
-    let value = value_calculator_factory(
-        10_i64 * (f.weights.iter().sum::<u32>() / f.weights.len() as u32) as i64,
-    );
+    let value = value_calculator_factory(10_i64 * total_weight);
 
     println!("Starting SA");
     while !frozen(t) {
