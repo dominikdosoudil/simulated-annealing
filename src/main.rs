@@ -115,6 +115,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut state = TruthAssignment::new_random(f.vars_n, &mut rng);
     let mut best = state.clone();
     let mut value_history: Vec<f32> = vec![];
+    let mut deviation_history: Vec<f32> = vec![];
 
     println!("inital temp: {}", t);
 
@@ -136,6 +137,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if state_value > best_value {
                 best = state.clone();
             }
+            let n = 2500;
+            let last_values = value_history.iter().skip(value_history.len() - n);
+            let last_values_avg = last_values.clone().sum::<f32>() / n as f32;
+            let std_deviation = (last_values
+                .map(|x| (*x - last_values_avg).powf(2.))
+                .sum::<f32>()
+                / (n - 1) as f32)
+                .sqrt();
+            let relative_deviation = std_deviation / last_values_avg;
+            deviation_history.push(std_deviation);
+            if_debug!(println!(
+                "{} / {} = {}",
+                std_deviation, last_values_avg, relative_deviation,
+            ));
+            if last_values_avg > 0. && relative_deviation < 0.00001 {
+                break;
+            }
         }
         if_debug!(println!("\nEquilibrium. Cooling down."));
         t = cool_down(t);
@@ -147,5 +165,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         f.clauses.len()
     );
 
-    visualisation::draw_values(&value_history)
+    visualisation::draw_values("plot.png", &args.input, &value_history)?;
+    visualisation::draw_values("plot2.png", &args.input, &deviation_history)
 }

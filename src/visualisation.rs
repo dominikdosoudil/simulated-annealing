@@ -1,13 +1,19 @@
 use plotters::prelude::*;
+use std::fmt::format;
 
-pub(crate) fn draw_values(values: &Vec<f32>) -> Result<(), Box<dyn std::error::Error>> {
-    let root = BitMapBackend::new("plotters-doc-data/plot.png", (1024, 768)).into_drawing_area();
+pub(crate) fn draw_values(
+    f_name: &str,
+    input_name: &str,
+    values: &Vec<f32>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let path = (format!("plotters-doc-data/{}", f_name));
+    let root = BitMapBackend::new(&path, (1024, 768)).into_drawing_area();
     root.fill(&WHITE)?;
     let root = root.margin(20, 20, 20, 20);
     // After this point, we should be able to draw construct a chart context
     let mut chart = ChartBuilder::on(&root)
         // Set the caption of the chart
-        .caption("This is our first plot", ("sans-serif", 40).into_font())
+        .caption(input_name, ("sans-serif", 40).into_font())
         // Set the size of the label region
         .x_label_area_size(20)
         .y_label_area_size(40)
