@@ -12,7 +12,6 @@ use rand::{rngs, thread_rng, Rng, SeedableRng};
 use std::fs;
 use std::str::FromStr;
 
-const INITIAL_TEMP: f64 = 50.;
 const MIN_TEMP: f64 = 5.;
 const EQUILIBRIUM: u64 = 100;
 const COOL_RATIO: f64 = 0.995;
