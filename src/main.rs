@@ -16,7 +16,7 @@ const INITIAL_TEMP: f64 = 50.;
 const MIN_TEMP: f64 = 5.;
 const EQUILIBRIUM: u64 = 100;
 const COOL_RATIO: f64 = 0.995;
-const INIT_HEAT_RATIO: f64 = 1.4;
+const INIT_HEAT_RATIO: f64 = 10.;
 
 const DEBUG: bool = false;
 
@@ -88,7 +88,7 @@ fn compute_initial_temperature(
         if acceptance_ratios.iter().sum::<f64>() / acceptance_ratios.len() as f64 > 0.5 {
             break;
         }
-        t *= INIT_HEAT_RATIO;
+        t += INIT_HEAT_RATIO;
     }
     t
 }
