@@ -110,7 +110,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let f = Formula::from_str(&instance_serialized).expect("parse formula");
 
     let total_weight = (f.weights.iter().sum::<u32>() / f.weights.len() as u32) as i64;
-    let value = value_calculator_factory(10_i64 * total_weight);
+    let value = value_calculator_factory(4_i64 * total_weight);
     let mut t = compute_initial_temperature(&mut rng, &f, &value);
     let mut state = TruthAssignment::new_random(f.vars_n, &mut rng);
     let mut best = state.clone();
