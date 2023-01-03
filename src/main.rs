@@ -7,8 +7,9 @@ mod visualisation;
 use crate::args::{Args, TailCutMethod};
 use crate::sat3::{Formula, TruthAssignment};
 use clap::Parser;
-use rand::{rngs, thread_rng, Rng, SeedableRng};
+use rand::{/*rngs,*/ thread_rng, Rng};
 use std::fs;
+use std::path::Path;
 use std::str::FromStr;
 
 const EQUILIBRIUM: u64 = 100;
@@ -108,8 +109,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let avg_weight = (f.weights.iter().sum::<u32>() / f.weights.len() as u32) as i64;
     let value = value_calculator_factory(args.penalty_multiplier * avg_weight);
     let cool_down = fridge_factory(args.cooling_ratio);
-    let frozen = frozen_factory(args.min_temperature);
     let mut t = compute_initial_temperature(&mut rng, &f, &value);
+    let frozen = frozen_factory(t / 10_f64.powi(args.min_temperature));
     let mut state = TruthAssignment::new_random(f.vars_n, &mut rng);
     let mut best = state.clone();
     let mut value_history: Vec<f32> = vec![];
@@ -130,11 +131,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if args.tail_cut_method == TailCutMethod::RelativeChange {
                 let relative_change =
                     (new_state_value as f64 - state_value as f64) / state_value as f64;
-                println!(
-                    "values: {} | {} ",
-                    new_state_value as f64, state_value as f64
-                );
-                println!("value change: {}", relative_change);
+                // println!(
+                //     "values: {} | {} ",
+                //     new_state_value as f64, state_value as f64
+                // );
+                // println!("value change: {}", relative_change);
                 if (relative_change as f64).abs() < 1. {
                     lifes -= 1;
                 } else {
@@ -177,12 +178,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         t = cool_down(t);
     }
     println!("{} {} {} 0", &args.input, value(&best, &f), best);
+    let satisfied_clauses_n = best.satisfied_clauses(f.clauses.iter()).len();
+    let clauses_n = f.clauses.len();
     println!(
         "Satisfied clauses: {} of {}",
-        best.satisfied_clauses(f.clauses.iter()).len(),
-        f.clauses.len()
+        satisfied_clauses_n, clauses_n
     );
 
-    visualisation::draw_values("plot.png", &args.input, &value_history)?;
-    visualisation::draw_values("plot2.png", &args.input, &deviation_history)
+    let file_name = Path::new(&args.input)
+        .file_name()
+        .expect("file exists")
+        .to_str()
+        .unwrap();
+    let f_name = format!("{}.png", file_name);
+    let plot_title = format!(
+        "{}  satisfied: {}/{} [p_m={}]",
+        &file_name, satisfied_clauses_n, clauses_n, args.penalty_multiplier
+    );
+    visualisation::draw_values(f_name.as_str(), &plot_title, &value_history)
+    // visualisation::draw_values("plot2.png", &args.input, &deviation_history)
 }
