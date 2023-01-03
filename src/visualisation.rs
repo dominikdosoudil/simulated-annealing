@@ -1,12 +1,11 @@
 use plotters::prelude::*;
-use std::fmt::format;
 
 pub(crate) fn draw_values(
     f_name: &str,
     input_name: &str,
     values: &Vec<f32>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let path = (format!("plotters-doc-data/{}", f_name));
+    let path = format!("plotters-doc-data/{}", f_name);
     let root = BitMapBackend::new(&path, (1024, 768)).into_drawing_area();
     root.fill(&WHITE)?;
     let root = root.margin(20, 20, 20, 20);
@@ -15,8 +14,9 @@ pub(crate) fn draw_values(
         // Set the caption of the chart
         .caption(input_name, ("sans-serif", 40).into_font())
         // Set the size of the label region
-        .x_label_area_size(20)
-        .y_label_area_size(40)
+        .x_label_area_size(40)
+        .y_label_area_size(100)
+        // .margin(10)
         // Finally attach a coordinate on the drawing area and make a chart context
         .build_cartesian_2d(
             0f32..values.len() as f32,
@@ -28,8 +28,11 @@ pub(crate) fn draw_values(
     chart
         .configure_mesh()
         // We can customize the maximum number of labels allowed for each axis
-        .x_labels(5)
-        .y_labels(5)
+        .x_labels(15)
+        .y_labels(15)
+        .y_desc("Hodnota stavu")
+        .x_desc("Iterace")
+        .axis_desc_style(("sans-serif", 20))
         // We can also change the format of the label text
         .y_label_formatter(&|x| format!("{:.3}", x))
         .draw()?;

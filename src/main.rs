@@ -7,7 +7,6 @@ mod visualisation;
 use crate::args::{Args, TailCutMethod};
 use crate::sat3::{Formula, TruthAssignment};
 use clap::Parser;
-use rand::rngs::ThreadRng;
 use rand::{rngs, thread_rng, Rng, SeedableRng};
 use std::fs;
 use std::str::FromStr;
