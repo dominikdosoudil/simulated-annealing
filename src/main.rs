@@ -105,8 +105,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let instance_serialized = fs::read_to_string(&args.input).expect("reading input file ok");
     let f = Formula::from_str(&instance_serialized).expect("parse formula");
 
-    let total_weight = (f.weights.iter().sum::<u32>() / f.weights.len() as u32) as i64;
-    let value = value_calculator_factory(args.penalty_multiplier * total_weight);
+    let avg_weight = (f.weights.iter().sum::<u32>() / f.weights.len() as u32) as i64;
+    let value = value_calculator_factory(args.penalty_multiplier * avg_weight);
     let cool_down = fridge_factory(args.cooling_ratio);
     let frozen = frozen_factory(args.min_temperature);
     let mut t = compute_initial_temperature(&mut rng, &f, &value);
