@@ -4,7 +4,7 @@ mod args;
 mod sat3;
 mod visualisation;
 
-use crate::args::Args;
+use crate::args::{Args, TailCutMethod};
 use crate::sat3::{Formula, TruthAssignment};
 use clap::Parser;
 use rand::rngs::ThreadRng;
@@ -12,11 +12,8 @@ use rand::{rngs, thread_rng, Rng, SeedableRng};
 use std::fs;
 use std::str::FromStr;
 
-const MIN_TEMP: f64 = 5.;
 const EQUILIBRIUM: u64 = 100;
-const COOL_RATIO: f64 = 0.995;
 const INIT_HEAT_RATIO: f64 = 10.;
-const CHANGE_LIFES: u16 = 50;
 
 const DEBUG: bool = false;
 
@@ -28,8 +25,8 @@ macro_rules! if_debug {
     };
 }
 
-fn frozen(t: f64) -> bool {
-    t <= MIN_TEMP
+fn frozen_factory(min_temperature: f64) -> impl Fn(f64) -> bool {
+    move |t: f64| t <= min_temperature
 }
 
 /// aka try
@@ -40,8 +37,8 @@ fn next_state(random_generator: &mut impl Rng, state: TruthAssignment) -> TruthA
     next_state
 }
 
-fn cool_down(t: f64) -> f64 {
-    t * COOL_RATIO
+fn fridge_factory(cooling_ratio: f64) -> impl Fn(f64) -> f64 {
+    move |t: f64| t * cooling_ratio
 }
 
 fn value_calculator_factory(penalty_multiplier: i64) -> impl Fn(&TruthAssignment, &Formula) -> i64 {
@@ -110,7 +107,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let f = Formula::from_str(&instance_serialized).expect("parse formula");
 
     let total_weight = (f.weights.iter().sum::<u32>() / f.weights.len() as u32) as i64;
-    let value = value_calculator_factory(4_i64 * total_weight);
+    let value = value_calculator_factory(args.penalty_multiplier * total_weight);
+    let cool_down = fridge_factory(args.cooling_ratio);
+    let frozen = frozen_factory(args.min_temperature);
     let mut t = compute_initial_temperature(&mut rng, &f, &value);
     let mut state = TruthAssignment::new_random(f.vars_n, &mut rng);
     let mut best = state.clone();
@@ -120,7 +119,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("inital temp: {}", t);
 
     println!("Starting SA");
-    let mut lifes = CHANGE_LIFES;
+    let mut lifes = args.tail_cut_length;
     while !frozen(t) && lifes > 0 {
         for _ in 0..EQUILIBRIUM {
             if_debug!(print!("{} ", value(&state, &f)));
@@ -129,18 +128,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let new_state = next_state(&mut rng, state.clone());
             let new_state_value = value(&new_state, &f);
 
-            // let relative_change =
-            //     (new_state_value as f64 - state_value as f64) / state_value as f64;
-            // println!(
-            //     "values: {} | {} ",
-            //     new_state_value as f64, state_value as f64
-            // );
-            // println!("value change: {}", relative_change);
-            // if (relative_change as f64).abs() < 1. {
-            //     lifes -= 1;
-            // } else {
-            //     lifes = CHANGE_LIFES;
-            // }
+            if args.tail_cut_method == TailCutMethod::RelativeChange {
+                let relative_change =
+                    (new_state_value as f64 - state_value as f64) / state_value as f64;
+                println!(
+                    "values: {} | {} ",
+                    new_state_value as f64, state_value as f64
+                );
+                println!("value change: {}", relative_change);
+                if (relative_change as f64).abs() < 1. {
+                    lifes -= 1;
+                } else {
+                    lifes = args.tail_cut_length;
+                }
+            }
 
             if new_state_value > state_value {
                 state = new_state;
@@ -152,22 +153,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if state_value > best_value {
                 best = state.clone();
             }
-            let n = 2500;
-            let last_values = value_history.iter().skip(value_history.len() - n);
-            let last_values_avg = last_values.clone().sum::<f32>() / n as f32;
-            let std_deviation = (last_values
-                .map(|x| (*x - last_values_avg).powf(2.))
-                .sum::<f32>()
-                / (n - 1) as f32)
-                .sqrt();
-            let relative_deviation = std_deviation / last_values_avg;
-            deviation_history.push(std_deviation);
-            if_debug!(println!(
-                "{} / {} = {}",
-                std_deviation, last_values_avg, relative_deviation,
-            ));
-            if last_values_avg > 0. && relative_deviation < 0.00001 {
-                break;
+
+            if args.tail_cut_method == TailCutMethod::RelativeDeviation {
+                let n = args.tail_cut_length;
+                let last_values = value_history.iter().skip(value_history.len() - n);
+                let last_values_avg = last_values.clone().sum::<f32>() / n as f32;
+                let std_deviation = (last_values
+                    .map(|x| (*x - last_values_avg).powf(2.))
+                    .sum::<f32>()
+                    / (n - 1) as f32)
+                    .sqrt();
+                let relative_deviation = std_deviation / last_values_avg;
+                deviation_history.push(std_deviation);
+                if_debug!(println!(
+                    "{} / {} = {}",
+                    std_deviation, last_values_avg, relative_deviation,
+                ));
+                if last_values_avg > 0. && relative_deviation < 0.00001 {
+                    break;
+                }
             }
         }
         if_debug!(println!("\nEquilibrium. Cooling down."));
