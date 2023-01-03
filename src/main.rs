@@ -16,6 +16,7 @@ const MIN_TEMP: f64 = 5.;
 const EQUILIBRIUM: u64 = 100;
 const COOL_RATIO: f64 = 0.995;
 const INIT_HEAT_RATIO: f64 = 10.;
+const CHANGE_LIFES: u16 = 50;
 
 const DEBUG: bool = false;
 
@@ -119,13 +120,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("inital temp: {}", t);
 
     println!("Starting SA");
-    while !frozen(t) {
+    let mut lifes = CHANGE_LIFES;
+    while !frozen(t) && lifes > 0 {
         for _ in 0..EQUILIBRIUM {
             if_debug!(print!("{} ", value(&state, &f)));
             let state_value = value(&state, &f);
             value_history.push(state_value as f32);
             let new_state = next_state(&mut rng, state.clone());
             let new_state_value = value(&new_state, &f);
+
+            // let relative_change =
+            //     (new_state_value as f64 - state_value as f64) / state_value as f64;
+            // println!(
+            //     "values: {} | {} ",
+            //     new_state_value as f64, state_value as f64
+            // );
+            // println!("value change: {}", relative_change);
+            // if (relative_change as f64).abs() < 1. {
+            //     lifes -= 1;
+            // } else {
+            //     lifes = CHANGE_LIFES;
+            // }
+
             if new_state_value > state_value {
                 state = new_state;
             } else if accept(&mut rng, (state_value - new_state_value) as f64, t) {
