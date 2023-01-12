@@ -116,9 +116,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut value_history: Vec<f32> = vec![];
     let mut deviation_history: Vec<f32> = vec![];
 
-    println!("inital temp: {}", t);
+    // println!("inital temp: {}", t);
 
-    println!("Starting SA");
+    // println!("Starting SA");
     let mut lifes = args.tail_cut_length;
     while !frozen(t) && lifes > 0 {
         for _ in 0..EQUILIBRIUM {
@@ -177,13 +177,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if_debug!(println!("\nEquilibrium. Cooling down."));
         t = cool_down(t);
     }
-    println!("{} {} {} 0", &args.input, value(&best, &f), best);
+    // println!("{} {} {} 0", &args.input, value(&best, &f), best);
     let satisfied_clauses_n = best.satisfied_clauses(f.clauses.iter()).len();
     let clauses_n = f.clauses.len();
-    println!(
-        "Satisfied clauses: {} of {}",
-        satisfied_clauses_n, clauses_n
-    );
+    println!("{} {}", value(&best, &f), satisfied_clauses_n);
+    // println!(
+    //     "Satisfied clauses: {} of {}",
+    //     satisfied_clauses_n, clauses_n
+    // );
 
     let file_name = Path::new(&args.input)
         .file_name()
